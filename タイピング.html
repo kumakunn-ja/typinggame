@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Pro Typer: Data Loaded</title>
+    <style>
+        :root { --main-color: #58a6ff; --bg-color: #0d1117; }
+        body {
+            background: var(--bg-color); color: #c9d1d9;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0; overflow: hidden;
+            transition: background 0.5s;
+        }
+        .container { text-align: center; width: 100%; transition: transform 0.1s; }
+        #word-jp { font-size: 5rem; margin: 0; color: var(--main-color); }
+        .typing-wrapper {
+            position: relative; font-size: 3rem; height: 4rem;
+            margin-top: 10px; letter-spacing: 5px; font-family: monospace;
+        }
+        #ghost-word { position: absolute; width: 100%; left: 0; color: #30363d; z-index: 1; }
+        #display-romaji { position: absolute; width: 100%; left: 0; z-index: 2; }
+        .typed { color: #3fb950; text-shadow: 0 0 10px rgba(63,185,80,0.5); }
+        .stats { margin-top: 60px; font-size: 1.2rem; display: flex; justify-content: center; gap: 30px; }
+        .level-badge { color: #f1c40f; font-weight: bold; }
+        #combo-text { font-size: 2rem; font-weight: bold; color: #f0883e; visibility: hidden; height: 50px; }
+        .shake { animation: shake 0.2s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="game-body">
+        <div id="combo-text">COMBO x<span id="combo-count">0</span></div>
+        <div class="level-badge">LEVEL <span id="level-display">1</span></div>
+        <h1 id="word-jp">LOADING...</h1>
+        <div class="typing-wrapper">
+            <div id="ghost-word"></div>
+            <div id="display-romaji">Please wait</div>
+        </div>
+        <div class="stats">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>TIME: <span id="timer">20</span>s</div>
+        </div>
+    </div>
+
+    <script>
+        let wordBanks = {};
+        let score = 0, timeLeft = 20, isPlaying = false;
+        let currentRomaji = "", charIndex = 0, combo = 0;
+        let level = 1, wordsTypedInLevel = 0;
+        let timerInterval;
+
+        const wordDisplayJP = document.getElementById('word-jp');
+        const romajiDisplay = document.getElementById('display-romaji');
+        const ghostDisplay = document.getElementById('ghost-word');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const levelDisplay = document.getElementById('level-display');
+        const comboText = document.getElementById('combo-text');
+        const gameBody = document.getElementById('game-body');
+
+        // 外部JSONファイルを読み込む
+        async function loadWords() {
+            try {
+                const response = await fetch('words.json');
+                wordBanks = await response.json();
+                wordDisplayJP.innerText = "READY?";
+                romajiDisplay.innerText = "Press any key";
+            } catch (error) {
+                wordDisplayJP.innerText = "ERROR";
+                romajiDisplay.innerText = "Check Console (F12)";
+                console.error("JSONの読み込みに失敗しました。サーバー上で実行してください。", error);
+            }
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq, type, duration, vol = 0.1) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function nextWord() {
+            const bank = wordBanks[Math.min(level, 5)];
+            const pick = bank[Math.floor(Math.random() * bank.length)];
+            wordDisplayJP.innerText = pick.jp;
+            currentRomaji = pick.r;
+            ghostDisplay.innerText = currentRomaji;
+            charIndex = 0;
+            renderWord();
+        }
+
+        function renderWord() {
+            romajiDisplay.innerHTML = `<span class="typed">${currentRomaji.substring(0, charIndex)}</span>`;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isPlaying && timeLeft > 0 && Object.keys(wordBanks).length > 0) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                isPlaying = true;
+                timerInterval = setInterval(updateTimer, 1000);
+                nextWord();
+                return;
+            }
+            if (!isPlaying || e.key === "Shift") return;
+
+            if (e.key === currentRomaji[charIndex]) {
+                charIndex++;
+                playSound(400 + (combo * 20), 'sine', 0.1);
+                renderWord();
+                if (charIndex === currentRomaji.length) {
+                    combo++;
+                    if (combo > 1) { 
+                        comboText.style.visibility = 'visible'; 
+                        document.getElementById('combo-count').innerText = combo; 
+                    }
+                    score += (10 * combo * level);
+                    scoreDisplay.innerText = score;
+                    timeLeft += Math.max(0.5, 2 - (level * 0.2)); 
+                    wordsTypedInLevel++;
+                    if (wordsTypedInLevel >= 5) {
+                        level++; wordsTypedInLevel = 0;
+                        levelDisplay.innerText = level;
+                    }
+                    playSound(800 + (combo * 50), 'sine', 0.2);
+                    nextWord();
+                }
+            } else {
+                combo = 0; comboText.style.visibility = 'hidden';
+                gameBody.classList.add('shake');
+                setTimeout(() => gameBody.classList.remove('shake'), 200);
+                playSound(100, 'sawtooth', 0.2, 0.05);
+            }
+        });
+
+        function updateTimer() {
+            timeLeft = parseFloat((timeLeft - 1).toFixed(1));
+            timerDisplay.innerText = Math.max(0, timeLeft);
+            if (timeLeft <= 0) {
+                isPlaying = false; clearInterval(timerInterval);
+                wordDisplayJP.innerText = "GAME OVER";
+                ghostDisplay.innerText = "";
+                romajiDisplay.innerText = `Score: ${score}`;
+            }
+        }
+
+        loadWords();
+    </script>
+</body>
+</html>
