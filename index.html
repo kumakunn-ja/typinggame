@@ -2,65 +2,83 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Typing Master: Particle & Music Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Typing Master JP</title>
     <style>
-        :root { --main-color: #58a6ff; --bg-color: #0d1117; }
+        :root { --main-color: #58a6ff; --bg-color: #0d1117; --danger-color: #ff4d4d; }
         body {
             background: var(--bg-color); color: #c9d1d9;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', 'Meiryo', sans-serif;
             margin: 0; overflow: hidden;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; transition: background 0.2s;
+            height: 100vh; transition: background 0.15s;
         }
         canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; }
         .container { text-align: center; width: 100%; z-index: 5; }
-        #word-jp { font-size: 5rem; margin: 0; color: var(--main-color); }
+        
+        #word-jp { font-size: 4.5rem; margin: 0; color: var(--main-color); text-shadow: 0 0 15px rgba(88,166,255,0.4); }
+        
         .typing-wrapper {
-            position: relative; font-size: 3.5rem; height: 4.5rem;
-            margin-top: 10px; letter-spacing: 5px; font-family: monospace;
+            position: relative; font-size: 3rem; height: 4rem;
+            margin-top: 15px; letter-spacing: 4px; font-family: 'Consolas', 'Courier New', monospace;
         }
         #ghost-word { position: absolute; width: 100%; left: 0; color: #30363d; z-index: 1; }
         #display-romaji { position: absolute; width: 100%; left: 0; z-index: 2; }
-        .typed { color: #3fb950; text-shadow: 0 0 10px rgba(63,185,80,0.5); }
-        .stats { margin-top: 40px; font-size: 1.2rem; display: flex; justify-content: center; gap: 30px; }
+        .typed { color: #3fb950; text-shadow: 0 0 10px rgba(63,185,80,0.6); }
+        
+        .stats { margin-top: 50px; font-size: 1.2rem; display: flex; justify-content: center; gap: 35px; opacity: 0.8; }
+        .level-badge { color: #f1c40f; font-weight: bold; font-size: 1.5rem; margin-bottom: 10px; }
+        
+        #combo-text { font-size: 2.2rem; font-weight: bold; color: #f0883e; visibility: hidden; height: 45px; transition: transform 0.1s; }
         .mistake-flash { background: #4a0000 !important; }
+        
         #ranking-container {
-            margin-top: 20px; background: rgba(255, 255, 255, 0.05);
-            padding: 15px; border-radius: 10px; display: none;
+            margin-top: 25px; background: rgba(255, 255, 255, 0.07);
+            padding: 20px; border-radius: 12px; display: none;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .rank-item { color: #f1c40f; margin: 5px 0; }
+        .rank-item { font-size: 1.3rem; color: #f1c40f; margin: 8px 0; }
+        
+        .shake { animation: shake 0.2s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
     </style>
 </head>
 <body>
     <canvas id="particleCanvas"></canvas>
 
     <div class="container" id="game-body">
-        <div id="combo-text" style="font-size: 2rem; font-weight: bold; color: #f0883e; visibility: hidden; height: 40px;">
-            COMBO x<span id="combo-count">0</span>
-        </div>
-        <div style="color:#f1c40f; font-weight:bold;">LEVEL <span id="level-display">1</span></div>
+        <div id="combo-text">COMBO x<span id="combo-count">0</span></div>
+        <div class="level-badge">LEVEL <span id="level-display">1</span></div>
         <h1 id="word-jp">LOADING...</h1>
+        
         <div class="typing-wrapper">
             <div id="ghost-word"></div>
-            <div id="display-romaji">Wait...</div>
+            <div id="display-romaji">Waiting for Data</div>
         </div>
+        
         <div class="stats">
             <div>SCORE: <span id="score">0</span></div>
             <div>ACC: <span id="accuracy">100</span>%</div>
             <div>TIME: <span id="timer">20.0</span>s</div>
         </div>
+
         <div id="ranking-container">
-            <h3>🏆 BEST SCORES</h3>
+            <h3 style="margin:0 0 15px 0;">🏆 PERSONAL BESTS</h3>
             <div id="ranking-list"></div>
-            <p style="font-size: 0.8rem; color: #888;">何かキーを押してリトライ</p>
+            <p style="font-size: 0.9rem; color: #888; margin-top:15px;">何かキーを押してリトライ</p>
         </div>
     </div>
 
     <script>
+        // --- 設定 ---
         let wordBanks = {};
         let score = 0, timeLeft = 20, isPlaying = false;
         let currentRomaji = "", charIndex = 0, combo = 0;
-        let totalKeys = 0, correctKeys = 0, level = 1, wordsTyped = 0;
+        let totalKeys = 0, correctKeys = 0, level = 1, wordsTypedInLevel = 0;
         let timerInterval;
 
         const canvas = document.getElementById('particleCanvas');
@@ -68,34 +86,28 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // パーティクル管理
+        // --- パーティクル管理 ---
         let particles = [];
         class Particle {
             constructor(x, y, color) {
                 this.x = x; this.y = y;
-                this.size = Math.random() * 5 + 2;
-                this.speedX = (Math.random() - 0.5) * 10;
-                this.speedY = (Math.random() - 0.5) * 10;
+                this.size = Math.random() * 4 + 2;
+                this.speedX = (Math.random() - 0.5) * 12;
+                this.speedY = (Math.random() - 0.5) * 12;
                 this.color = color;
                 this.alpha = 1;
             }
-            update() {
-                this.x += this.speedX; this.y += this.speedY;
-                this.alpha -= 0.02;
-            }
+            update() { this.x += this.speedX; this.y += this.speedY; this.alpha -= 0.025; }
             draw() {
-                ctx.globalAlpha = this.alpha;
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.save();
+                ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
             }
         }
 
         function createParticles(color) {
-            for (let i = 0; i < 20; i++) {
-                particles.push(new Particle(window.innerWidth / 2, window.innerHeight / 2, color));
-            }
+            for (let i = 0; i < 25; i++) particles.push(new Particle(window.innerWidth / 2, window.innerHeight / 2, color));
         }
 
         function animate() {
@@ -106,43 +118,64 @@
         }
         animate();
 
-        // オーディオ設定 (BGM & 効果音)
+        // --- オーディオ (BGM & 効果音) ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playNote(freq, type, duration, vol) {
             const o = audioCtx.createOscillator();
             const g = audioCtx.createGain();
-            o.type = type; o.frequency.value = freq;
+            o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
             g.gain.setValueAtTime(vol, audioCtx.currentTime);
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
             o.connect(g); g.connect(audioCtx.destination);
             o.start(); o.stop(audioCtx.currentTime + duration);
         }
 
-        // BGM生成 (シンプルなループ)
         function startBGM() {
-            let notes = [261.63, 293.66, 329.63, 349.23]; // C, D, E, F
+            let melody = [261, 329, 392, 523]; // C-E-G-C
             let i = 0;
-            setInterval(() => {
-                if (isPlaying) {
-                    playNote(notes[i % notes.length] * 0.5, 'triangle', 0.5, 0.02);
-                    i++;
-                }
-            }, 500);
+            const bgmInterval = setInterval(() => {
+                if (!isPlaying) { clearInterval(bgmInterval); return; }
+                playNote(melody[i % 4] * 0.5, 'triangle', 0.6, 0.02);
+                i++;
+            }, 600);
         }
 
+        // --- ゲームロジック ---
         async function loadWords() {
             try {
                 const response = await fetch('words.json');
                 wordBanks = await response.json();
                 document.getElementById('word-jp').innerText = "READY?";
-                document.getElementById('display-romaji').innerText = "Any key to Start";
-            } catch (e) { document.getElementById('word-jp').innerText = "FETCH ERROR"; }
+                document.getElementById('display-romaji').innerText = "Press Any Key to Start";
+            } catch (e) {
+                document.getElementById('word-jp').innerText = "DATA ERROR";
+                console.error("words.jsonの読み込みに失敗しました。");
+            }
+        }
+
+        function nextWord() {
+            const currentBank = wordBanks[Math.min(level, 10).toString()];
+            if (!currentBank) return;
+            const pick = currentBank[Math.floor(Math.random() * currentBank.length)];
+            document.getElementById('word-jp').innerText = pick.jp;
+            currentRomaji = pick.r;
+            document.getElementById('ghost-word').innerText = currentRomaji;
+            charIndex = 0;
+            renderWord();
+        }
+
+        function renderWord() {
+            document.getElementById('display-romaji').innerHTML = `<span class="typed">${currentRomaji.substring(0, charIndex)}</span>`;
         }
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === "Shift") return;
+            if (e.key === "Shift" || e.ctrlKey || e.altKey) return;
+
+            // リトライ処理
             if (!isPlaying && timeLeft <= 0) { location.reload(); return; }
-            if (!isPlaying && wordBanks["1"]) {
+
+            // 開始処理
+            if (!isPlaying && Object.keys(wordBanks).length > 0) {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 isPlaying = true;
                 startBGM();
@@ -154,56 +187,71 @@
                 nextWord();
                 return;
             }
+
             if (!isPlaying) return;
 
             totalKeys++;
             if (e.key === currentRomaji[charIndex]) {
                 correctKeys++;
                 charIndex++;
-                playNote(400 + (combo * 15), 'sine', 0.1, 0.1);
-                document.getElementById('display-romaji').innerHTML = `<span class="typed">${currentRomaji.substring(0, charIndex)}</span>`;
+                playNote(400 + (combo * 15), 'sine', 0.1, 0.08);
+                renderWord();
+
+                // 単語クリア
                 if (charIndex === currentRomaji.length) {
                     combo++;
-                    score += (10 * combo * level);
-                    timeLeft += Math.max(0.4, 1.5 - (level * 0.2));
-                    createParticles('#3fb950'); // 正解パーティクル
-                    wordsTyped++;
-                    if (wordsTyped >= 5) { level++; wordsTyped = 0; }
+                    createParticles('#3fb950');
+                    // スコア計算 (文字数 * レベル * コンボ)
+                    score += (currentRomaji.length * 10 * level * (1 + (combo * 0.1)));
+                    
+                    // 【重要】タイムボーナス: 文字数 * 0.15秒 + 基本1秒
+                    timeLeft += (currentRomaji.length * 0.15) + Math.max(0.2, 1.0 - (level * 0.1));
+                    
+                    wordsTypedInLevel++;
+                    if (wordsTypedInLevel >= 5) {
+                        level++;
+                        wordsTypedInLevel = 0;
+                        playNote(200, 'square', 0.4, 0.05); // レベルアップ音
+                    }
                     nextWord();
                 }
             } else {
+                // ミス
                 combo = 0;
+                document.getElementById('game-body').classList.add('shake');
                 document.body.classList.add('mistake-flash');
-                setTimeout(() => document.body.classList.remove('mistake-flash'), 150);
-                playNote(100, 'sawtooth', 0.2, 0.05);
+                playNote(120, 'sawtooth', 0.2, 0.06);
+                setTimeout(() => {
+                    document.getElementById('game-body').classList.remove('shake');
+                    document.body.classList.remove('mistake-flash');
+                }, 150);
             }
+
+            // ステータス更新
+            document.getElementById('score').innerText = Math.floor(score);
             document.getElementById('accuracy').innerText = Math.floor((correctKeys / totalKeys) * 100);
-            document.getElementById('score').innerText = score;
             document.getElementById('level-display').innerText = level;
             document.getElementById('combo-text').style.visibility = combo > 1 ? 'visible' : 'hidden';
             document.getElementById('combo-count').innerText = combo;
         });
 
-        function nextWord() {
-            const bank = wordBanks[Math.min(level, 5)];
-            const pick = bank[Math.floor(Math.random() * bank.length)];
-            document.getElementById('word-jp').innerText = pick.jp;
-            currentRomaji = pick.r;
-            document.getElementById('ghost-word').innerText = currentRomaji;
-            charIndex = 0;
-        }
-
         function endGame() {
             isPlaying = false;
             clearInterval(timerInterval);
             document.getElementById('word-jp').innerText = "FINISH!";
+            document.getElementById('ghost-word').innerText = "";
+            document.getElementById('display-romaji').innerText = `TOTAL SCORE: ${Math.floor(score)}`;
+            
+            // ランキング保存
             let ranking = JSON.parse(localStorage.getItem('typingRanking')) || [];
-            ranking.push(score);
+            ranking.push(Math.floor(score));
             ranking.sort((a, b) => b - a);
             ranking = ranking.slice(0, 3);
             localStorage.setItem('typingRanking', JSON.stringify(ranking));
+            
             document.getElementById('ranking-list').innerHTML = ranking.map((s, i) => `<div class="rank-item">${i+1}位: ${s}点</div>`).join("");
             document.getElementById('ranking-container').style.display = "block";
+            playNote(150, 'square', 0.6, 0.1);
         }
 
         loadWords();
