@@ -2,72 +2,57 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Ultimate Typing: Accuracy & Effects</title>
+    <title>Typing Master: Particle & Music Edition</title>
     <style>
-        :root { --main-color: #58a6ff; --bg-color: #0d1117; --danger-color: #ff4d4d; }
+        :root { --main-color: #58a6ff; --bg-color: #0d1117; }
         body {
             background: var(--bg-color); color: #c9d1d9;
             font-family: 'Segoe UI', sans-serif;
+            margin: 0; overflow: hidden;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0; overflow: hidden;
-            transition: background 0.2s; /* 背景色変化のスピード */
+            height: 100vh; transition: background 0.2s;
         }
-        /* ミス時のエフェクト用クラス */
-        body.mistake-flash { background: #4a0000; }
-
-        .container { text-align: center; width: 100%; transition: transform 0.1s; }
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 10; }
+        .container { text-align: center; width: 100%; z-index: 5; }
         #word-jp { font-size: 5rem; margin: 0; color: var(--main-color); }
         .typing-wrapper {
             position: relative; font-size: 3.5rem; height: 4.5rem;
-            margin-top: 10px; letter-spacing: 5px; font-family: 'Courier New', Courier, monospace;
+            margin-top: 10px; letter-spacing: 5px; font-family: monospace;
         }
         #ghost-word { position: absolute; width: 100%; left: 0; color: #30363d; z-index: 1; }
         #display-romaji { position: absolute; width: 100%; left: 0; z-index: 2; }
         .typed { color: #3fb950; text-shadow: 0 0 10px rgba(63,185,80,0.5); }
-        
         .stats { margin-top: 40px; font-size: 1.2rem; display: flex; justify-content: center; gap: 30px; }
-        .accuracy-badge { color: #8b949e; }
-        .level-badge { color: #f1c40f; font-weight: bold; }
-
+        .mistake-flash { background: #4a0000 !important; }
         #ranking-container {
             margin-top: 20px; background: rgba(255, 255, 255, 0.05);
             padding: 15px; border-radius: 10px; display: none;
         }
-        .rank-item { font-size: 1.2rem; margin: 5px 0; color: #f1c40f; }
-
-        .shake { animation: shake 0.2s ease-in-out; }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
-        }
+        .rank-item { color: #f1c40f; margin: 5px 0; }
     </style>
 </head>
 <body>
+    <canvas id="particleCanvas"></canvas>
 
     <div class="container" id="game-body">
         <div id="combo-text" style="font-size: 2rem; font-weight: bold; color: #f0883e; visibility: hidden; height: 40px;">
             COMBO x<span id="combo-count">0</span>
         </div>
-        
-        <div class="level-badge">LEVEL <span id="level-display">1</span></div>
+        <div style="color:#f1c40f; font-weight:bold;">LEVEL <span id="level-display">1</span></div>
         <h1 id="word-jp">LOADING...</h1>
-        
         <div class="typing-wrapper">
             <div id="ghost-word"></div>
             <div id="display-romaji">Wait...</div>
         </div>
-        
         <div class="stats">
             <div>SCORE: <span id="score">0</span></div>
-            <div>ACCURACY: <span id="accuracy">100</span>%</div>
-            <div>TIME: <span id="timer">20</span>s</div>
+            <div>ACC: <span id="accuracy">100</span>%</div>
+            <div>TIME: <span id="timer">20.0</span>s</div>
         </div>
-
         <div id="ranking-container">
-            <h3 style="margin:0 0 10px 0;">🏆 PERSONAL BEST</h3>
+            <h3>🏆 BEST SCORES</h3>
             <div id="ranking-list"></div>
-            <p style="font-size: 0.8rem; color: #888; margin-top:10px;">キーを押してリトライ</p>
+            <p style="font-size: 0.8rem; color: #888;">何かキーを押してリトライ</p>
         </div>
     </div>
 
@@ -75,142 +60,150 @@
         let wordBanks = {};
         let score = 0, timeLeft = 20, isPlaying = false;
         let currentRomaji = "", charIndex = 0, combo = 0;
-        let totalKeys = 0, correctKeys = 0; // 正確率用
-        let level = 1, wordsTypedInLevel = 0;
+        let totalKeys = 0, correctKeys = 0, level = 1, wordsTyped = 0;
         let timerInterval;
 
-        const wordDisplayJP = document.getElementById('word-jp');
-        const romajiDisplay = document.getElementById('display-romaji');
-        const ghostDisplay = document.getElementById('ghost-word');
-        const scoreDisplay = document.getElementById('score');
-        const timerDisplay = document.getElementById('timer');
-        const accuracyDisplay = document.getElementById('accuracy');
-        const levelDisplay = document.getElementById('level-display');
-        const comboText = document.getElementById('combo-text');
-        const gameBody = document.getElementById('game-body');
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        // データ読み込み
+        // パーティクル管理
+        let particles = [];
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = (Math.random() - 0.5) * 10;
+                this.speedY = (Math.random() - 0.5) * 10;
+                this.color = color;
+                this.alpha = 1;
+            }
+            update() {
+                this.x += this.speedX; this.y += this.speedY;
+                this.alpha -= 0.02;
+            }
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function createParticles(color) {
+            for (let i = 0; i < 20; i++) {
+                particles.push(new Particle(window.innerWidth / 2, window.innerHeight / 2, color));
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = particles.filter(p => p.alpha > 0);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // オーディオ設定 (BGM & 効果音)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playNote(freq, type, duration, vol) {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = type; o.frequency.value = freq;
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + duration);
+        }
+
+        // BGM生成 (シンプルなループ)
+        function startBGM() {
+            let notes = [261.63, 293.66, 329.63, 349.23]; // C, D, E, F
+            let i = 0;
+            setInterval(() => {
+                if (isPlaying) {
+                    playNote(notes[i % notes.length] * 0.5, 'triangle', 0.5, 0.02);
+                    i++;
+                }
+            }, 500);
+        }
+
         async function loadWords() {
             try {
                 const response = await fetch('words.json');
                 wordBanks = await response.json();
-                wordDisplayJP.innerText = "READY?";
-                romajiDisplay.innerText = "Press any key";
-            } catch (e) {
-                wordDisplayJP.innerText = "ERROR";
-                console.error(e);
-            }
-        }
-
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSound(f, t, d, v = 0.1) {
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
-            g.gain.setValueAtTime(v, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
-            o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + d);
-        }
-
-        function nextWord() {
-            const bank = wordBanks[Math.min(level, 5)];
-            const pick = bank[Math.floor(Math.random() * bank.length)];
-            wordDisplayJP.innerText = pick.jp;
-            currentRomaji = pick.r;
-            ghostDisplay.innerText = currentRomaji;
-            charIndex = 0;
-            renderWord();
-        }
-
-        function renderWord() {
-            romajiDisplay.innerHTML = `<span class="typed">${currentRomaji.substring(0, charIndex)}</span>`;
-        }
-
-        // --- ランキング処理 ---
-        function updateRanking(finalScore) {
-            let ranking = JSON.parse(localStorage.getItem('typingRanking')) || [];
-            ranking.push(finalScore);
-            ranking.sort((a, b) => b - a);
-            ranking = ranking.slice(0, 3);
-            localStorage.setItem('typingRanking', JSON.stringify(ranking));
-            
-            const list = document.getElementById('ranking-list');
-            list.innerHTML = ranking.map((s, i) => `<div class="rank-item">${i+1}位: ${s}点</div>`).join("");
-            document.getElementById('ranking-container').style.display = "block";
+                document.getElementById('word-jp').innerText = "READY?";
+                document.getElementById('display-romaji').innerText = "Any key to Start";
+            } catch (e) { document.getElementById('word-jp').innerText = "FETCH ERROR"; }
         }
 
         window.addEventListener('keydown', (e) => {
             if (e.key === "Shift") return;
-
-            // ゲームスタート / リトライ
-            if (!isPlaying && timeLeft <= 0) { 
-                location.reload(); // 終了後はリロードでリセット
-                return;
-            }
-            if (!isPlaying && Object.keys(wordBanks).length > 0) {
+            if (!isPlaying && timeLeft <= 0) { location.reload(); return; }
+            if (!isPlaying && wordBanks["1"]) {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 isPlaying = true;
-                timerInterval = setInterval(updateTimer, 100); // 0.1秒単位で更新
+                startBGM();
+                timerInterval = setInterval(() => {
+                    timeLeft -= 0.1;
+                    document.getElementById('timer').innerText = Math.max(0, timeLeft).toFixed(1);
+                    if (timeLeft <= 0) endGame();
+                }, 100);
                 nextWord();
                 return;
             }
-
             if (!isPlaying) return;
 
-            totalKeys++; // 入力した合計キー数
+            totalKeys++;
             if (e.key === currentRomaji[charIndex]) {
-                correctKeys++; // 正解数
+                correctKeys++;
                 charIndex++;
-                playSound(400 + (combo * 10), 'sine', 0.1);
-                renderWord();
-
+                playNote(400 + (combo * 15), 'sine', 0.1, 0.1);
+                document.getElementById('display-romaji').innerHTML = `<span class="typed">${currentRomaji.substring(0, charIndex)}</span>`;
                 if (charIndex === currentRomaji.length) {
                     combo++;
-                    if (combo > 1) { 
-                        comboText.style.visibility = 'visible'; 
-                        document.getElementById('combo-count').innerText = combo; 
-                    }
                     score += (10 * combo * level);
-                    scoreDisplay.innerText = score;
-                    timeLeft += Math.max(0.4, 1.5 - (level * 0.2)); 
-                    wordsTypedInLevel++;
-                    if (wordsTypedInLevel >= 5) {
-                        level++; levelDisplay.innerText = level;
-                        wordsTypedInLevel = 0;
-                    }
-                    playSound(800 + (combo * 20), 'sine', 0.2);
+                    timeLeft += Math.max(0.4, 1.5 - (level * 0.2));
+                    createParticles('#3fb950'); // 正解パーティクル
+                    wordsTyped++;
+                    if (wordsTyped >= 5) { level++; wordsTyped = 0; }
                     nextWord();
                 }
             } else {
-                // ミス時のエフェクト
                 combo = 0;
-                comboText.style.visibility = 'hidden';
-                gameBody.classList.add('shake');
-                document.body.classList.add('mistake-flash'); // 背景を赤く
-                setTimeout(() => {
-                    gameBody.classList.remove('shake');
-                    document.body.classList.remove('mistake-flash');
-                }, 150);
-                playSound(100, 'sawtooth', 0.2, 0.05);
+                document.body.classList.add('mistake-flash');
+                setTimeout(() => document.body.classList.remove('mistake-flash'), 150);
+                playNote(100, 'sawtooth', 0.2, 0.05);
             }
-
-            // 正確率の計算
-            const acc = Math.floor((correctKeys / totalKeys) * 100);
-            accuracyDisplay.innerText = acc;
+            document.getElementById('accuracy').innerText = Math.floor((correctKeys / totalKeys) * 100);
+            document.getElementById('score').innerText = score;
+            document.getElementById('level-display').innerText = level;
+            document.getElementById('combo-text').style.visibility = combo > 1 ? 'visible' : 'hidden';
+            document.getElementById('combo-count').innerText = combo;
         });
 
-        function updateTimer() {
-            timeLeft -= 0.1;
-            timerDisplay.innerText = Math.max(0, timeLeft).toFixed(1);
-            if (timeLeft <= 0) {
-                isPlaying = false;
-                clearInterval(timerInterval);
-                wordDisplayJP.innerText = "FINISH!";
-                ghostDisplay.innerText = "";
-                romajiDisplay.innerText = `最終スコア: ${score}`;
-                updateRanking(score);
-            }
+        function nextWord() {
+            const bank = wordBanks[Math.min(level, 5)];
+            const pick = bank[Math.floor(Math.random() * bank.length)];
+            document.getElementById('word-jp').innerText = pick.jp;
+            currentRomaji = pick.r;
+            document.getElementById('ghost-word').innerText = currentRomaji;
+            charIndex = 0;
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(timerInterval);
+            document.getElementById('word-jp').innerText = "FINISH!";
+            let ranking = JSON.parse(localStorage.getItem('typingRanking')) || [];
+            ranking.push(score);
+            ranking.sort((a, b) => b - a);
+            ranking = ranking.slice(0, 3);
+            localStorage.setItem('typingRanking', JSON.stringify(ranking));
+            document.getElementById('ranking-list').innerHTML = ranking.map((s, i) => `<div class="rank-item">${i+1}位: ${s}点</div>`).join("");
+            document.getElementById('ranking-container').style.display = "block";
         }
 
         loadWords();
