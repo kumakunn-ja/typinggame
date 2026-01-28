@@ -1,26 +1,53 @@
 {
   "1": [
-    {"jp": "ねこ", "r": "neko"},
-    {"jp": "いぬ", "r": "inu"},
-    {"jp": "さる", "r": "saru"}
+    {"jp": "ねこ", "r": "neko"}, {"jp": "いぬ", "r": "inu"}, {"jp": "うみ", "r": "umi"},
+    {"jp": "とり", "r": "tori"}, {"jp": "ゆき", "r": "yuki"}, {"jp": "はな", "r": "hana"}
   ],
   "2": [
-    {"jp": "すし", "r": "sushi"},
-    {"jp": "さくら", "r": "sakura"},
-    {"jp": "まんが", "r": "manga"}
+    {"jp": "さくら", "r": "sakura"}, {"jp": "ピアノ", "r": "piano"}, {"jp": "りんご", "r": "ringo"},
+    {"jp": "すいか", "r": "suika"}, {"jp": "おちゃ", "r": "ocha"}, {"jp": "カメラ", "r": "camera"}
   ],
   "3": [
-    {"jp": "にんじゃ", "r": "ninja"},
-    {"jp": "きつね", "r": "kitsune"},
-    {"jp": "てんぷら", "r": "tempura"}
+    {"jp": "にほんご", "r": "nihongo"}, {"jp": "ひこうき", "r": "hikouki"}, {"jp": "おにぎり", "r": "onigiri"},
+    {"jp": "ふじさん", "r": "fujisan"}, {"jp": "にんじゃ", "r": "ninja"}, {"jp": "おまつり", "r": "omatsuri"}
   ],
   "4": [
-    {"jp": "にほんご", "r": "nihongo"},
-    {"jp": "たこやき", "r": "takoyaki"},
-    {"jp": "とうきょう", "r": "tokyo"}
+    {"jp": "こんにちは", "r": "konnnichiwa"}, {"jp": "ありがとう", "r": "arigatou"}, {"jp": "おやすみなさい", "r": "oyasuminasai"},
+    {"jp": "いってきます", "r": "ittekimasu"}, {"jp": "いただきます", "r": "itadakimasu"}
   ],
   "5": [
-    {"jp": "プログラミング", "r": "programming"},
-    {"jp": "コンピュータ", "r": "computer"}
+    {"jp": "継続は力なり", "r": "keizokuwachikaranari"},
+    {"jp": "石の上にも三年", "r": "ishinouenimosannen"},
+    {"jp": "案ずるより産むが易し", "r": "anzuruyoriumugayasushi"},
+    {"jp": "急がば回れ", "r": "isogabamaware"},
+    {"jp": "善は急げ", "r": "zenwaisoge"}
+  ],
+  "6": [
+    {"jp": "一期一会", "r": "ichigoichie"},
+    {"jp": "以心伝心", "r": "ishindenshin"},
+    {"jp": "切磋琢磨", "r": "sessatakuma"},
+    {"jp": "温故知新", "r": "onkochishin"},
+    {"jp": "不言実行", "r": "fugenjikkou"}
+  ],
+  "7": [
+    {"jp": "弘法筆を選ばず", "r": "kouboufudewoerabazu"},
+    {"jp": "情けは人のためならず", "r": "nasakewahitonotamenarazu"},
+    {"jp": "笑う門には福来たる", "r": "waraukadonifukukitaru"}
+  ],
+  "8": [
+    {"jp": "三日坊主で終わらない", "r": "mikkabouzudeowaranai"},
+    {"jp": "果報は寝て待て", "r": "kahouwanetemate"},
+    {"jp": "初心忘るべからず", "r": "shoshinwasurubekarazu"}
+  ],
+  "9": [
+    {"jp": "ペンは剣よりも強し", "r": "penwakenn-yorimotsuyoshi"},
+    {"jp": "失敗は成功のもと", "r": "shippaiwaseikounomoto"},
+    {"jp": "時は金なり", "r": "tokiwakanenari"}
+  ],
+  "10": [
+    {"jp": "吾輩は猫である。名前はまだ無い。", "r": "wagahaiwanekodearu.namaewamadanai."},
+    {"jp": "雨ニモマケズ風ニモマケズ", "r": "amenimomakezukazenimomakezu"},
+    {"jp": "明日は明日の風が吹く", "r": "ashitawaashitanokazegafuku"}
+    {"jp": "先生！トイレ！！", "r": "sensei!toire!!"}
   ]
 }
